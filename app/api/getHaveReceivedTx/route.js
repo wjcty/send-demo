@@ -32,7 +32,7 @@ const getBlockNumberByTimestamp = async (timestamp, apiKey) => {
 }
 // 发送人地址
 const senderAddr = '0x67bDCd09B94f8bCA7DFa769bbC0Fa0154cc598c1'
-export const getHaveReceivedTx = async (receiver) => {
+const getHaveReceivedTx = async (receiver) => {
     const apiKey = process.env.NEXT_PUBLIC_BSCSCAN_API_KEY
     const url = `https://api-opbnb.bscscan.com/api`
 
@@ -72,3 +72,5 @@ export const getHaveReceivedTx = async (receiver) => {
         throw error
     }
 }
+
+export default getHaveReceivedTx

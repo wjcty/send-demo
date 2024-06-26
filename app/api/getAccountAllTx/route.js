@@ -1,7 +1,7 @@
 import axios from 'axios'
 // 发送人地址
 const senderAddr = '0x67bDCd09B94f8bCA7DFa769bbC0Fa0154cc598c1'
-export const getAccountAllTx = async (receiver) => {
+const getAccountAllTx = async (receiver) => {
     const apiKey = process.env.NEXT_PUBLIC_BSCSCAN_API_KEY
     const url = `https://api-opbnb.bscscan.com/api`
 
@@ -34,3 +34,5 @@ export const getAccountAllTx = async (receiver) => {
         throw error
     }
 }
+
+export default getAccountAllTx

@@ -11,9 +11,9 @@ import { useDisclosure } from '@mantine/hooks'
 
 const meet48NftAddr = '0xbE8546cb8460755331335f728f978828191A8935'
 const wandNftAddr = '0x663DcEF009d1C7408B888f571cbfDa2a67A71fc5'
-import { getAccountTodayTx } from './api/getAccountTodayTx/route'
-import { getAccountAllTx } from './api/getAccountAllTx/route'
-import { getHaveReceivedTx } from './api/getHaveReceivedTx/route'
+import getAccountTodayTx from './api/getAccountTodayTx/route'
+import getAccountAllTx from './api/getAccountAllTx/route'
+import getHaveReceivedTx from './api/getHaveReceivedTx/route'
 
 const MySendGas = () => {
     const [ownsMeet48NFT, setownsMeet48NFT] = useState<boolean | undefined>(undefined)
