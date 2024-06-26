@@ -185,8 +185,8 @@ const MySendGas = () => {
                 <div className='flex flex-col items-center'>
                     <MyConnectBtn />
                     <div className='mt-10'>今日可领取Gas剩余</div>
-                    <div>1000 - {currentUse} </div>
-                    <div> 共交易次数{txCount}</div>
+                    <div> {1000 - currentUse} </div>
+                    <div> 总领取次数{txCount}</div>
                     <div> 今日领取次数{haveReceived ? 1 : 0}</div>
 
                     {!fetchFailure && (
