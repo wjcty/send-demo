@@ -14,12 +14,11 @@ import getHaveReceivedTx from '@/api/getHaveReceivedTx/route'
 
 const meet48NftAddr = '0xbE8546cb8460755331335f728f978828191A8935'
 const wandNftAddr = '0x663DcEF009d1C7408B888f571cbfDa2a67A71fc5'
-0x6b011243fb0fe6d715a3f6a9da0a372849443b3b
+
 const MySendGas = () => {
     const { address, isConnected } = useAccount()
-    const [ownsMeet48NFT, setownsMeet48NFT] = useState<boolean | undefined>(undefined)
-    const [ownsWandNFT, setownsWandNFT] = useState<boolean | undefined>(undefined)
-    const [claimError, setClaimError] = useState<string>('')
+    const [ownsMeet48NFT, setownsMeet48NFT] = useState<boolean | undefined>(false)
+    const [ownsWandNFT, setownsWandNFT] = useState<boolean | undefined>(false)
 
     //  meet48 打call nft
     const { data, isError } = useReadContract({
@@ -171,6 +170,9 @@ const MySendGas = () => {
         } catch (error) {
             console.error('Error calling sendToken API:', error)
             setisPending(false)
+        } finally {
+            // bug1 点击后不可二次点击
+            setHaveReceived(true)
         }
     }, [address, currentUse, open])
 
