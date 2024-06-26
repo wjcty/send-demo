@@ -65,7 +65,7 @@ export const MyConnectBtn = () => {
                             return (
                                 <div
                                     style={{ display: 'flex', gap: 12 }}
-                                    className='bg-[#1F1F1F] rounded-xl py-1 px-4 text-[#F15223]'
+                                    className='rounded-xl py-1 px-4 text-[#F15223] border border-[#999]'
                                 >
                                     <button
                                         onClick={openChainModal}
