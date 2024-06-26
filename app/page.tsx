@@ -1,113 +1,220 @@
-import Image from 'next/image'
+'use client'
 
-export default function Home() {
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{' '}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useAccount, useReadContract } from 'wagmi'
+import meet48NftABI from '@/constants/meet48Nft.json'
+import wandNftAddrABI from '@/constants/wandNftAddr.json'
+import { Button, Modal } from '@mantine/core'
+import { MyConnectBtn } from '@/components/wallet/myConnectBtn'
+import dynamic from 'next/dynamic'
+import { useDisclosure } from '@mantine/hooks'
+
+const meet48NftAddr = '0xbE8546cb8460755331335f728f978828191A8935'
+const wandNftAddr = '0x663DcEF009d1C7408B888f571cbfDa2a67A71fc5'
+import { getAccountTodayTx } from './api/getAccountTodayTx/route'
+import { getAccountAllTx } from './api/getAccountAllTx/route'
+import { getHaveReceivedTx } from './api/getHaveReceivedTx/route'
+
+const MySendGas = () => {
+    const [ownsMeet48NFT, setownsMeet48NFT] = useState<boolean | undefined>(undefined)
+    const [ownsWandNFT, setownsWandNFT] = useState<boolean | undefined>(undefined)
+    const [claimError, setClaimError] = useState<string>('')
+    const { address, isConnected } = useAccount()
+
+    //  meet48 打call nft
+    // temp holder 0xef3f10b2cfe3d2464cf2f6ef89d60f054c8450ee
+    const { data, isError } = useReadContract({
+        address: meet48NftAddr,
+        abi: meet48NftABI,
+        functionName: 'balanceOf',
+        args: ['0xef3f10b2cfe3d2464cf2f6ef89d60f054c8450ee', 1] // 使用当前用户地址检查持有的NFT
+    })
+
+    // wand nft
+    const { data: wandData, isError: wandisError } = useReadContract({
+        address: wandNftAddr,
+        abi: wandNftAddrABI,
+        functionName: 'balanceOf',
+        args: [address, 1] // 使用当前用户地址检查持有的NFT
+    })
+
+    // 获取今天的交易次数
+    const fetchTodayTx = async () => {
+        try {
+            const res = await getAccountTodayTx()
+            setcurrentUse(res)
+        } catch (err) {
+            console.log("Error fetching today's transactions:", err)
+        }
+    }
+    useEffect(() => {
+        fetchTodayTx()
+    }, [address])
+
+    useEffect(() => {
+        if (data) {
+            const balance = BigInt(data.toString())
+            setownsMeet48NFT(balance > 0)
+        } else if (isError) {
+            console.error('Failed to fetch NFT ownership:', isError)
+            setownsMeet48NFT(false)
+        }
+
+        if (wandData) {
+            const balance = BigInt(wandData.toString())
+            setownsWandNFT(balance > 0)
+        } else if (wandisError) {
+            console.error('Failed to fetch NFT ownership:', wandisError)
+            setownsWandNFT(false)
+        }
+    }, [data, isError, wandData, wandisError])
+
+    const [isPending, setisPending] = useState<boolean | undefined>(false)
+    const [currentUse, setcurrentUse] = useState(0)
+
+    // 新增状态来保存交易次数和今日交易状态
+    const [txCount, setTxCount] = useState(0)
+    const [haveReceived, setHaveReceived] = useState(false)
+
+    useEffect(() => {
+        // 获取与address的总交易次数
+        const fetchTxCount = async () => {
+            try {
+                const count = await getAccountAllTx(address)
+                setTxCount(count) // 更新txCount状态
+            } catch (err) {
+                console.log('Error fetching all transactions:', err)
+            }
+        }
+
+        // 获取今天是否已经领取
+        const fetchHaveReceived = async () => {
+            try {
+                const received = await getHaveReceivedTx(address)
+                setHaveReceived(received) // 更新haveReceived状态
+            } catch (err) {
+                console.log("Error checking today's transactions:", err)
+            }
+        }
+
+        // 连接钱包并且持有任一个NFT 才去fecth数据
+        if (address && (data || wandData)) {
+            fetchTxCount()
+            fetchHaveReceived()
+        }
+    }, [address, data, wandData])
+
+    const [opened, { open, close }] = useDisclosure(false)
+    const sendGas = useCallback(async () => {
+        setisPending(true)
+
+        if (currentUse >= 1000) {
+            settext('今日已无gas可领取，请明日再来')
+            open()
+            setisPending(false)
+            return
+        }
+
+        // 检查是否符合领取条件
+        if (txCount >= 3) {
+            settext('您已经领取三次, 不能再领取')
+            open()
+            setisPending(false)
+            return
+        }
+
+        if (haveReceived) {
+            settext('您今日已经领取过，请明日再来')
+            open()
+            setisPending(false)
+            return
+        }
+
+        // temp receiver 0xef3f10b2cfe3d2464cf2f6ef89d60f054c8450ee
+        try {
+            const response = await fetch('/api/sendToken', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    recipient: address
+                })
+            })
+
+            if (!response.ok) {
+                const errorText = await response.text()
+                throw new Error(errorText)
+            }
+
+            const result = await response.json()
+            settext('Gas领取成功！ 交易哈希: ' + result.txHash)
+            setisPending(false)
+            open()
+            // 交易成功后更新今天的交易次数
+            fetchTodayTx()
+        } catch (error) {
+            console.error('Error calling sendToken API:', error)
+            setisPending(false)
+        }
+    }, [address, currentUse, txCount, haveReceived, open])
+
+    const [text, settext] = useState('')
+
+    // 按钮的禁用条件
+    const isDisabled = useMemo(() => {
+        return isPending || txCount >= 3 || haveReceived
+    }, [isPending, txCount, haveReceived])
+
+    return (
+        <div className='flex pt-20 justify-center h-screen'>
+            {isConnected ? (
+                <div className='flex flex-col items-center'>
+                    <MyConnectBtn />
+                    <div className='mt-10'>今日可领取Gas剩余</div>
+                    <div>{currentUse} / 1000</div>
+
+                    {(ownsMeet48NFT || ownsWandNFT) && (
+                        <div className='my-20'>
+                            <button
+                                className={`${
+                                    isDisabled ? 'cursor-not-allowed' : ''
+                                } px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-700 transition duration-300 mt-4`}
+                                onClick={sendGas}
+                                disabled={isDisabled} // 根据isDisabled禁用按钮
+                            >
+                                {isPending
+                                    ? '正在领取...'
+                                    : txCount >= 3
+                                    ? '已达领取上限'
+                                    : haveReceived
+                                    ? '今日已领取'
+                                    : '点击领取'}
+                            </button>
+                        </div>
+                    )}
+
+                    {!ownsMeet48NFT && !ownsWandNFT && (
+                        <div className='my-4 rounded-xl border border-[#999] px-2 py-2'>
+                            未持有NFT 暂不可领取
+                        </div>
+                    )}
+                    <div>规则：每个地址24小时只能领取一次</div>
+                    <div>每个地址最多只能领取Gas三次</div>
+                </div>
+            ) : (
+                <div>
+                    <MyConnectBtn />
+                </div>
+            )}
+            <Modal opened={opened} onClose={close} title='提示'>
+                <div className='flex flex-col items-center'>
+                    <div className='mb-4'>{text}</div>
+                    <Button onClick={close}>确定 </Button>
+                </div>
+            </Modal>
         </div>
-      </div>
-
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore the Next.js 13 playground.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
-  )
+    )
 }
+
+export default dynamic(() => Promise.resolve(MySendGas), { ssr: false })
