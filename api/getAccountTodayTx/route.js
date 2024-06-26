@@ -63,7 +63,6 @@ const getAccountTodayTx = async () => {
             const todayTransactions = response.data.result.filter(
                 (tx) => tx.from.toUpperCase() === senderAddr.toUpperCase()
             )
-            console.log(123, response.data.result, todayTransactions)
             return todayTransactions.length // 返回今天的交易数量
         } else {
             throw new Error(response.data.message)

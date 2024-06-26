@@ -41,46 +41,67 @@ const MySendGas = () => {
     const [txCount, setTxCount] = useState(0)
     const [haveReceived, setHaveReceived] = useState(false)
 
-    // 是否重新获取
-    const [isAgainFethch, setisAgainFethch] = useState(false)
     // 是否获取失败
     const [fetchFailure, setfetchFailure] = useState(false)
 
     // retryFetch: 重试逻辑封装
-    const retryFetch = async (fetchFn: Function, retries = 3, delay = 1000) => {
-        for (let i = 0; i < retries; i++) {
-            try {
-                const result = await fetchFn()
-                return result
-            } catch (error) {
-                console.warn(`Attempt ${i + 1} failed. Retrying in ${delay}ms...`, error)
-                await new Promise((res) => setTimeout(res, delay))
-            }
+    const retryFetch = async (fetchFn: () => Promise<any>, delay = 1000): Promise<any> => {
+        try {
+            const result = await fetchFn() // 尝试执行 fetchFn
+            return result // 成功时返回结果
+        } catch (error: any) {
+            console.warn(`Attempt failed. Retrying in ${delay}ms...`, error)
+            await new Promise((res) => setTimeout(res, delay))
+            return retryFetch(fetchFn, delay) // 重试递归调用
         }
-        throw new Error(`Failed after ${retries} retries`)
     }
 
     // 获取今天的交易次数 并行 获取某个用户总交易次数 和 是否已领取
     const fetchTxAndReceivedStatus = useCallback(async () => {
         // const tempAddr = '0x46c2594bb8295da7be14064604046caa12c61a45'
-        try {
-            const [useCount, txCountRes, haveReceivedRes] = await Promise.all([
-                retryFetch(() => getAccountTodayTx()),
-                retryFetch(() => getAccountAllTx(address)),
-                retryFetch(() => getHaveReceivedTx(address))
-            ])
-            setcurrentUse(useCount)
-            setTxCount(txCountRes) // 更新 txCount 状态
-            setHaveReceived(haveReceivedRes) // 更新 haveReceived 状态
-            setisAgainFethch(false)
-            setfetchFailure(false)
-        } catch (err) {
-            console.log('Error fetching transaction data:', err)
-            // 在请求失败时设置默认值
-            setfetchFailure(true)
-            setisAgainFethch(true)
+
+        const requests = [
+            retryFetch(() => getAccountTodayTx()),
+            retryFetch(() => getAccountAllTx(address)),
+            retryFetch(() => getHaveReceivedTx(address))
+        ]
+
+        let results = await Promise.all(requests)
+
+        // 过滤失败的请求，结果是 Error 对象的表示请求失败
+        let failedRequests = results.filter((result) => result instanceof Error)
+
+        // 继续重试失败的请求，直到全部成功
+        while (failedRequests.length > 0) {
+            console.log('Retrying failed requests:', failedRequests)
+
+            // 对失败的请求重新进行请求
+            const retryResults = await Promise.all(
+                failedRequests.map((req) => {
+                    if (req.message.includes('getAccountTodayTx')) {
+                        return retryFetch(() => getAccountTodayTx())
+                    } else if (req.message.includes('getAccountAllTx')) {
+                        return retryFetch(() => getAccountAllTx(address))
+                    } else if (req.message.includes('getHaveReceivedTx')) {
+                        return retryFetch(() => getHaveReceivedTx(address))
+                    } else {
+                        return req
+                    }
+                })
+            )
+
+            // 更新结果，过滤出新的失败请求
+            results = retryResults.map((res, i) => (res instanceof Error ? results[i] : res))
+            failedRequests = retryResults.filter((result) => result instanceof Error)
         }
-    }, [address])
+
+        // 提取成功的请求结果
+        const [useCount, txCountRes, haveReceivedRes] = results
+        setcurrentUse(useCount) // 更新当日已经领取数量
+        setTxCount(txCountRes) // 更新 txCount 状态
+        setHaveReceived(haveReceivedRes) // 更新 今日是否接收 状态
+        setfetchFailure(false)
+    }, [address, retryFetch])
 
     // 用户连接钱包后 获取数据
     useEffect(() => {
@@ -88,13 +109,6 @@ const MySendGas = () => {
             fetchTxAndReceivedStatus()
         }
     }, [address, fetchTxAndReceivedStatus])
-
-    // 请求数据失败 重新获取
-    useEffect(() => {
-        if (isAgainFethch) {
-            fetchTxAndReceivedStatus()
-        }
-    }, [fetchTxAndReceivedStatus, isAgainFethch])
 
     useEffect(() => {
         if (data) {
@@ -120,21 +134,6 @@ const MySendGas = () => {
 
         if (currentUse >= 1000) {
             settext('今日已无gas可领取，请明日再来')
-            open()
-            setisPending(false)
-            return
-        }
-
-        // 检查是否符合领取条件
-        if (txCount >= 3) {
-            settext('您已经领取三次, 不能再领取')
-            open()
-            setisPending(false)
-            return
-        }
-
-        if (haveReceived) {
-            settext('您今日已经领取过，请明日再来')
             open()
             setisPending(false)
             return
@@ -168,16 +167,13 @@ const MySendGas = () => {
             console.error('Error calling sendToken API:', error)
             setisPending(false)
         }
-    }, [address, currentUse, txCount, haveReceived, open])
+    }, [address, currentUse, open])
 
     const [text, settext] = useState('')
     const [isPending, setisPending] = useState(false)
 
     // 按钮的禁用条件
-    const isDisabled = useMemo(() => {
-        return isPending || txCount >= 3 || haveReceived
-    }, [isPending, txCount, haveReceived])
-
+    const isDisabled = isPending || txCount >= 3 || haveReceived
     return (
         <div className='flex pt-20 justify-center h-screen'>
             {isConnected ? (
@@ -186,7 +182,7 @@ const MySendGas = () => {
                     <div className='mt-10'>今日可领取Gas剩余</div>
                     <div>{currentUse} / 1000</div>
                     <div> 共交易次数{txCount}</div>
-                    <div> 今日是否 交易过{haveReceived ? 1 : 0}</div>
+                    <div> 今日领取次数{haveReceived ? 1 : 0}</div>
 
                     {!fetchFailure && (
                         <div>
