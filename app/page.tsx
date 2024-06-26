@@ -45,21 +45,26 @@ const MySendGas = () => {
     const [fetchFailure, setfetchFailure] = useState(false)
 
     // retryFetch: 重试逻辑封装
-    const retryFetch = async (fetchFn: () => Promise<any>, delay = 1000): Promise<any> => {
-        try {
-            const result = await fetchFn() // 尝试执行 fetchFn
-            return result // 成功时返回结果
-        } catch (error: any) {
-            console.warn(`Attempt failed. Retrying in ${delay}ms...`, error)
-            await new Promise((res) => setTimeout(res, delay))
-            return retryFetch(fetchFn, delay) // 重试递归调用
-        }
-    }
+    const retryFetch = useCallback(
+        async (fetchFn: () => Promise<any>, delay = 1000): Promise<any> => {
+            try {
+                const result = await fetchFn() // 尝试执行 fetchFn
+                return result // 成功时返回结果
+            } catch (error: any) {
+                console.warn(`Attempt failed. Retrying in ${delay}ms...`, error)
+                await new Promise((res) => setTimeout(res, delay))
+                return retryFetch(fetchFn, delay) // 重试递归调用
+            }
+        },
+        []
+    )
 
+    const [init, setInit] = useState(false)
     // 获取今天的交易次数 并行 获取某个用户总交易次数 和 是否已领取
     const fetchTxAndReceivedStatus = useCallback(async () => {
-        // const tempAddr = '0x46c2594bb8295da7be14064604046caa12c61a45'
+        const tempAddr = '0x46c2594bb8295da7be14064604046caa12c61a45'
 
+        setInit(true)
         const requests = [
             retryFetch(() => getAccountTodayTx()),
             retryFetch(() => getAccountAllTx(address)),
@@ -73,6 +78,7 @@ const MySendGas = () => {
 
         // 继续重试失败的请求，直到全部成功
         while (failedRequests.length > 0) {
+            setisPending(true)
             console.log('Retrying failed requests:', failedRequests)
 
             // 对失败的请求重新进行请求
@@ -100,7 +106,8 @@ const MySendGas = () => {
         setcurrentUse(useCount) // 更新当日已经领取数量
         setTxCount(txCountRes) // 更新 txCount 状态
         setHaveReceived(haveReceivedRes) // 更新 今日是否接收 状态
-        setfetchFailure(false)
+        setInit(false)
+        setisPending(false)
     }, [address, retryFetch])
 
     // 用户连接钱包后 获取数据
@@ -193,15 +200,23 @@ const MySendGas = () => {
                                             isDisabled ? 'cursor-not-allowed' : ''
                                         } px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-700 transition duration-300 mt-4`}
                                         onClick={sendGas}
-                                        disabled={isDisabled} // 根据isDisabled禁用按钮
+                                        disabled={init || isDisabled} // 根据isDisabled禁用按钮
                                     >
-                                        {isPending
+                                        {init && <div>加载中...</div>}
+                                        {isPending && <div>正在领取...</div>}
+                                        {txCount >= 3 && <div>已达领取上限</div>}
+                                        {haveReceived && <div>今日已领取</div>}
+                                        {!init && !isPending && txCount < 3 && !haveReceived && (
+                                            <div>点击领取</div>
+                                        )}
+
+                                        {/* {isPending
                                             ? '正在领取...'
                                             : txCount >= 3
                                             ? '已达领取上限'
                                             : haveReceived
                                             ? '今日已领取'
-                                            : '点击领取'}
+                                            : '点击领取'} */}
                                     </button>
                                 </div>
                             )}
