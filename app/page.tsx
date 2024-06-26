@@ -14,7 +14,7 @@ import getHaveReceivedTx from '@/api/getHaveReceivedTx/route'
 
 const meet48NftAddr = '0xbE8546cb8460755331335f728f978828191A8935'
 const wandNftAddr = '0x663DcEF009d1C7408B888f571cbfDa2a67A71fc5'
-
+0x6b011243fb0fe6d715a3f6a9da0a372849443b3b
 const MySendGas = () => {
     const { address, isConnected } = useAccount()
     const [ownsMeet48NFT, setownsMeet48NFT] = useState<boolean | undefined>(undefined)
@@ -78,7 +78,6 @@ const MySendGas = () => {
 
         // 继续重试失败的请求，直到全部成功
         while (failedRequests.length > 0) {
-            setisPending(true)
             console.log('Retrying failed requests:', failedRequests)
 
             // 对失败的请求重新进行请求
@@ -107,7 +106,6 @@ const MySendGas = () => {
         setTxCount(txCountRes) // 更新 txCount 状态
         setHaveReceived(haveReceivedRes) // 更新 今日是否接收 状态
         setInit(false)
-        setisPending(false)
     }, [address, retryFetch])
 
     // 用户连接钱包后 获取数据
@@ -187,7 +185,7 @@ const MySendGas = () => {
                 <div className='flex flex-col items-center'>
                     <MyConnectBtn />
                     <div className='mt-10'>今日可领取Gas剩余</div>
-                    <div>{currentUse} / 1000</div>
+                    <div>1000 - {currentUse} </div>
                     <div> 共交易次数{txCount}</div>
                     <div> 今日领取次数{haveReceived ? 1 : 0}</div>
 
@@ -222,8 +220,8 @@ const MySendGas = () => {
                             )}
 
                             {!ownsMeet48NFT && !ownsWandNFT && (
-                                <div className='my-4 rounded-xl border border-[#999] px-2 py-2'>
-                                    未持有NFT 暂不可领取
+                                <div className='my-20 rounded-xl border border-[#999] px-2 py-2'>
+                                    未持有meet48投票券 暂不可领取
                                 </div>
                             )}
                         </div>
