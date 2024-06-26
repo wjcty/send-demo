@@ -27,7 +27,7 @@ const MySendGas = () => {
         address: meet48NftAddr,
         abi: meet48NftABI,
         functionName: 'balanceOf',
-        args: ['0xef3f10b2cfe3d2464cf2f6ef89d60f054c8450ee', 1] // 使用当前用户地址检查持有的NFT
+        args: [address, 1] // 使用当前用户地址检查持有的NFT
     })
 
     // wand nft
