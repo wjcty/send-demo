@@ -61,7 +61,7 @@ const MySendGas = () => {
     const [init, setInit] = useState(false)
     // 获取今天的交易次数 并行 获取某个用户总交易次数 和 是否已领取
     const fetchTxAndReceivedStatus = useCallback(async () => {
-        const tempAddr = '0x46c2594bb8295da7be14064604046caa12c61a45'
+        const tempAddr = '0x2ad105814631d5242bab290f3bab2a284b3a253b'
 
         setInit(true)
         const requests = [
@@ -162,6 +162,8 @@ const MySendGas = () => {
 
             const result = await response.json()
             settext('Gas领取成功！ 交易哈希: ' + result.txHash)
+            // bug1 点击后不可二次点击
+            setHaveReceived(true)
             setisPending(false)
             open()
             // 交易成功后更新今天的交易次数
@@ -170,9 +172,6 @@ const MySendGas = () => {
         } catch (error) {
             console.error('Error calling sendToken API:', error)
             setisPending(false)
-        } finally {
-            // bug1 点击后不可二次点击
-            setHaveReceived(true)
         }
     }, [address, currentUse, open])
 
@@ -189,7 +188,7 @@ const MySendGas = () => {
                     <div className='mt-10'>今日可领取Gas剩余</div>
                     <div> {1000 - currentUse} </div>
                     <div> 总领取次数{txCount}</div>
-                    <div> 今日领取次数{haveReceived ? 1 : 0}</div>
+                    <div> 24小时内领取次数{haveReceived ? 1 : 0}</div>
 
                     {!fetchFailure && (
                         <div>
@@ -205,7 +204,7 @@ const MySendGas = () => {
                                         {init && <div>加载中...</div>}
                                         {isPending && <div>正在领取...</div>}
                                         {txCount >= 3 && <div>已达领取上限</div>}
-                                        {haveReceived && <div>今日已领取</div>}
+                                        {haveReceived && <div>24小时内已领取</div>}
                                         {!init && !isPending && txCount < 3 && !haveReceived && (
                                             <div>点击领取</div>
                                         )}

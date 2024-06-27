@@ -65,7 +65,11 @@ const getAccountTodayTx = async () => {
             )
             return todayTransactions.length // 返回今天的交易数量
         } else {
-            throw new Error(response.data.message)
+            if (response.data.status === '0' && response.data.result.length === 0) {
+                return 0
+            } else {
+                throw new Error(response.data.message)
+            }
         }
     } catch (error) {
         console.error('Error fetching transactions:', error)
