@@ -58,12 +58,12 @@ const MySendGas = () => {
         []
     )
 
-    const [init, setInit] = useState(false)
+    const [init, setInit] = useState(true)
     // 获取今天的交易次数 并行 获取某个用户总交易次数 和 是否已领取
     const fetchTxAndReceivedStatus = useCallback(async () => {
-        const tempAddr = '0x2ad105814631d5242bab290f3bab2a284b3a253b'
+        const tempAddr = '0x174097336cfc6e7c795f14cc7455a093714af237'
 
-        setInit(true)
+        // setInit(true)
         const requests = [
             retryFetch(() => getAccountTodayTx()),
             retryFetch(() => getAccountAllTx(address)),
@@ -185,10 +185,15 @@ const MySendGas = () => {
             {isConnected ? (
                 <div className='flex flex-col items-center'>
                     <MyConnectBtn />
-                    <div className='mt-10'>今日可领取Gas剩余</div>
-                    <div> {1000 - currentUse} </div>
-                    <div> 总领取次数{txCount}</div>
-                    <div> 24小时内领取次数{haveReceived ? 1 : 0}</div>
+
+                    <div>
+                        <div className='mt-10 flex'>
+                            今日可领取Gas剩余: <div className='ml-2'> {1000 - currentUse} </div>
+                        </div>
+
+                        <div> 您的总领取次数：{txCount}</div>
+                        <div> 您的24小时内领取次数：{haveReceived ? 1 : 0}</div>
+                    </div>
 
                     {!fetchFailure && (
                         <div>
