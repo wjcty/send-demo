@@ -1,4 +1,4 @@
-// lib/api.js
+// 获取指定地址今天的领取次数
 import axios from 'axios'
 
 // 获取今天的开始时间（午夜）的Unix时间戳
@@ -34,7 +34,7 @@ const getBlockNumberByTimestamp = async (timestamp, apiKey) => {
 
 // 发送人地址
 const senderAddr = '0x67bDCd09B94f8bCA7DFa769bbC0Fa0154cc598c1'
-const getAccountTodayTx = async () => {
+const getAccountTodayTx = async (address) => {
     const apiKey = process.env.NEXT_PUBLIC_BSCSCAN_API_KEY
     const url = `https://api-opbnb.bscscan.com/api`
 
@@ -60,10 +60,13 @@ const getAccountTodayTx = async () => {
 
         if (response.data.status === '1') {
             // 过滤出从指定地址发起的交易
-            const todayTransactions = response.data.result.filter(
-                (tx) => tx.from.toUpperCase() === senderAddr.toUpperCase()
-            )
-            return todayTransactions.length // 返回今天的交易数量
+            const todayTransactions = response.data.result.filter((tx) => {
+                return (
+                    tx.from.toUpperCase() === senderAddr.toUpperCase() &&
+                    tx.to.toUpperCase() === address.toUpperCase()
+                )
+            })
+            return todayTransactions.length // 返回今天的领取次数
         } else {
             if (response.data.status === '0' && response.data.result.length === 0) {
                 return 0

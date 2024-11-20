@@ -16,7 +16,6 @@ const meet48NftAddr = '0xbE8546cb8460755331335f728f978828191A8935'
 const wandNftAddr = '0x663DcEF009d1C7408B888f571cbfDa2a67A71fc5'
 
 const MySendGas = () => {
-    const meet48addressOfQQ = '0xef3f10b2cfe3d2464cf2f6ef89d60f054c8450ee'
     const { address, isConnected } = useAccount()
     const [ownsMeet48NFT, setownsMeet48NFT] = useState<boolean | undefined>(false)
     const [ownsWandNFT, setownsWandNFT] = useState<boolean | undefined>(false)
@@ -37,7 +36,8 @@ const MySendGas = () => {
         args: [address, 1] // 使用当前用户地址检查持有的NFT
     })
 
-    const [todayTxCount, setTodayTxCount] = useState(0)
+    const [currentUse, setcurrentUse] = useState(0)
+    const [txCount, setTxCount] = useState(0)
     const [haveReceived, setHaveReceived] = useState(false)
 
     // 是否获取失败
@@ -65,7 +65,8 @@ const MySendGas = () => {
 
         // setInit(true)
         const requests = [
-            retryFetch(() => getAccountTodayTx(address)),
+            retryFetch(() => getAccountTodayTx()),
+            retryFetch(() => getAccountAllTx(address)),
             retryFetch(() => getHaveReceivedTx(address))
         ]
 
@@ -82,7 +83,9 @@ const MySendGas = () => {
             const retryResults = await Promise.all(
                 failedRequests.map((req) => {
                     if (req.message.includes('getAccountTodayTx')) {
-                        return retryFetch(() => getAccountTodayTx(address))
+                        return retryFetch(() => getAccountTodayTx())
+                    } else if (req.message.includes('getAccountAllTx')) {
+                        return retryFetch(() => getAccountAllTx(address))
                     } else if (req.message.includes('getHaveReceivedTx')) {
                         return retryFetch(() => getHaveReceivedTx(address))
                     } else {
@@ -97,9 +100,10 @@ const MySendGas = () => {
         }
 
         // 提取成功的请求结果
-        const [txCountRes, haveReceivedRes] = results
-        setTodayTxCount(txCountRes) // 更新今日领取次数
-        setHaveReceived(haveReceivedRes) // 更新24小时领取次数
+        const [useCount, txCountRes, haveReceivedRes] = results
+        setcurrentUse(useCount) // 更新当日已经领取数量
+        setTxCount(txCountRes) // 更新 txCount 状态
+        setHaveReceived(haveReceivedRes) // 更新 今日是否接收 状态
         setInit(false)
     }, [address, retryFetch])
 
@@ -132,7 +136,14 @@ const MySendGas = () => {
     const sendGas = useCallback(async () => {
         setisPending(true)
 
-        const tempAddr = '0xef3f10b2cfe3d2464cf2f6ef89d60f054c8450ee'
+        if (currentUse >= 1000) {
+            settext('今日已无gas可领取，请明日再来')
+            open()
+            setisPending(false)
+            return
+        }
+
+        // temp receiver 0xef3f10b2cfe3d2464cf2f6ef89d60f054c8450ee
         try {
             const response = await fetch('/api/sendToken', {
                 method: 'POST',
@@ -155,22 +166,20 @@ const MySendGas = () => {
             setHaveReceived(true)
             setisPending(false)
             open()
-            // 交易成功后更新今天的交易次数 24小时领取次数
-            const txCountRes = await getAccountTodayTx(address)
-            const haveReceivedRes = await getHaveReceivedTx(address)
-            setTodayTxCount(txCountRes)
-            setHaveReceived(haveReceivedRes)
+            // 交易成功后更新今天的交易次数
+            const res = await getAccountTodayTx()
+            setcurrentUse(res)
         } catch (error) {
             console.error('Error calling sendToken API:', error)
             setisPending(false)
         }
-    }, [address, open])
+    }, [address, currentUse, open])
 
     const [text, settext] = useState('')
     const [isPending, setisPending] = useState(false)
 
     // 按钮的禁用条件
-    const isDisabled = isPending || todayTxCount > 0 || haveReceived
+    const isDisabled = isPending || txCount >= 3 || haveReceived
     return (
         <div className='flex pt-20 justify-center h-screen'>
             {isConnected ? (
@@ -178,8 +187,12 @@ const MySendGas = () => {
                     <MyConnectBtn />
 
                     <div>
-                        <div> 您24小时内领取次数：{haveReceived ? 1 : 0}</div>
-                        <div> 您今日领取次数：{todayTxCount}</div>
+                        <div className='mt-10 flex'>
+                            今日可领取Gas剩余: <div className='ml-2'> {1000 - currentUse} </div>
+                        </div>
+
+                        <div> 您的总领取次数：{txCount}</div>
+                        <div> 您的24小时内领取次数：{haveReceived ? 1 : 0}</div>
                     </div>
 
                     {!fetchFailure && (
@@ -195,12 +208,19 @@ const MySendGas = () => {
                                     >
                                         {init && <div>加载中...</div>}
                                         {isPending && <div>正在领取...</div>}
-                                        {todayTxCount > 0 && <div>今日已领取</div>}
+                                        {txCount >= 3 && <div>已达领取上限</div>}
                                         {haveReceived && <div>24小时内已领取</div>}
-                                        {!init &&
-                                            !isPending &&
-                                            todayTxCount < 1 &&
-                                            !haveReceived && <div>点击领取</div>}
+                                        {!init && !isPending && txCount < 3 && !haveReceived && (
+                                            <div>点击领取</div>
+                                        )}
+
+                                        {/* {isPending
+                                            ? '正在领取...'
+                                            : txCount >= 3
+                                            ? '已达领取上限'
+                                            : haveReceived
+                                            ? '今日已领取'
+                                            : '点击领取'} */}
                                     </button>
                                 </div>
                             )}
@@ -214,9 +234,8 @@ const MySendGas = () => {
                     )}
 
                     {fetchFailure && <div className='my-20'>获取数据失败 正在重新获取...</div>}
-                    <div>规则：</div>
-                    <div>每个地址24小时只能领取一次</div>
-                    <div>每个地址每天只能领取Gas一次</div>
+                    <div>规则：每个地址24小时只能领取一次</div>
+                    <div>每个地址最多只能领取Gas三次</div>
                 </div>
             ) : (
                 <div>
